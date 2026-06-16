@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>6174 — Kaprekar's Routine Visualizer</title>
+    <link rel="stylesheet" href="src/style.css" />
+  </head>
+  <body>
+    <h1>6174</h1>
+    <p class="subtitle">Visualizer for Kaprekar's routine</p>
+
+    <nav class="view-tabs">
+      <button class="view-tabs__button" data-view="steps">Steps</button>
+      <button class="view-tabs__button" data-view="bars">Distribution</button>
+      <button class="view-tabs__button" data-view="numberline">Number Line</button>
+    </nav>
+
+    <div class="controls">
+      <input type="text" id="number-input" inputmode="numeric" maxlength="4" placeholder="3524" />
+      <button id="go-button">Go</button>
+    </div>
+
+    <section id="view-steps" class="view">
+      <div id="steps-output"></div>
+    </section>
+
+    <section id="view-bars" class="view" hidden>
+      <canvas id="bars-canvas" width="640" height="360"></canvas>
+    </section>
+
+    <section id="view-numberline" class="view" hidden>
+      <canvas id="numberline-canvas" width="800" height="220"></canvas>
+    </section>
+
+    <script src="src/kaprekar.js"></script>
+    <script src="src/views/steps.js"></script>
+    <script src="src/views/bars.js"></script>
+    <script src="src/views/numberline.js"></script>
+    <script src="src/main.js"></script>
+  </body>
+</html>
