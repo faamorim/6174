@@ -56,7 +56,21 @@ h1 {
 
 .view:not([hidden]) {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cycle-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: #444;
+}
+
+#cycle-speed {
+  width: 180px;
 }
 
 #bars-canvas {
@@ -68,7 +82,12 @@ h1 {
 #numberline-canvas {
   width: 100%;
   max-width: 800px;
-  height: 220px;
+  /* height is set dynamically in JS so the baseline never shifts */
+}
+
+#cycle-button.is-cycling {
+  background: #b00020;
+  color: #fff;
 }
 
 input[type="text"] {

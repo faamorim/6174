@@ -31,6 +31,11 @@
     </section>
 
     <section id="view-numberline" class="view" hidden>
+      <div class="cycle-controls">
+        <button id="cycle-button">Cycle</button>
+        <label for="cycle-speed">Speed: <span id="cycle-speed-value">10</span>/sec</label>
+        <input type="range" id="cycle-speed" min="1" max="2000" step="1" value="10" />
+      </div>
       <canvas id="numberline-canvas" width="800" height="220"></canvas>
     </section>
 

@@ -1,16 +1,23 @@
-// Traffic-light gradient by node distance-to-target (0 = at 6174 = green,
-// 7 = farthest possible start = red). Nodes get 8 stops (0..7); arcs reuse
-// the color of the node they lead into, so the very first number (which has
-// no incoming arc) is the only place the reddest stop (7) ever shows up.
-const MAX_DISTANCE = 7;
+// Color/height are relative to THIS path, not absolute distance-to-target:
+// the first jump is always max height + red, the last jump always min
+// height + green, interpolating in between. A single-jump path is max/red
+// (there's no "last jump" distinct from the first one).
 const STUCK_COLOR = "#999999";
+const MIN_HEIGHT_RATIO = 0.15;
 const LABEL_ROW_HEIGHT = 16;
 const LABEL_MIN_GAP = 6;
 
-function colorForNodeDistance(d) {
-  if (d < 0) return STUCK_COLOR; // repdigit dead end, never reaches 6174
-  const hue = (1 - d / MAX_DISTANCE) * 120; // 0 = red, 120 = green
-  return `hsl(${hue}, 70%, 45%)`;
+// Fixed layout: the line always sits PADDING_TOP + ARC_AREA_HEIGHT pixels
+// from the top, regardless of how many label rows the bottom needs. Only
+// the canvas's total height (and the label area) grows downward.
+const PADDING_TOP = 20;
+const ARC_AREA_HEIGHT = 140;
+const ARC_HEIGHT_MARGIN = 10;
+const LABEL_BASE_HEIGHT = 30;
+
+/** t=0 is the first jump (red), t=1 is the last jump (green). */
+function colorForT(t) {
+  return `hsl(${t * 120}, 70%, 45%)`;
 }
 
 /** Greedily stacks labels into rows so close-together ones don't overlap. */
@@ -36,39 +43,67 @@ function assignLabelRows(ctx, entries) {
  * series of arcs on a 0..9999 number line. No zoom/LOD: a path is at
  * most 7 hops, so it's always cheap to draw in full.
  */
-function renderNumberLineView(canvas, n) {
+function renderNumberLineView(canvas, n, { showLabels = true } = {}) {
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
   const width = canvas.clientWidth || canvas.width;
-  const height = canvas.clientHeight || canvas.height;
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, width, height);
 
-  const padding = { left: 30, right: 30, top: 20, bottom: 30 };
+  const padding = { left: 30, right: 30 };
   const plotWidth = width - padding.left - padding.right;
   const xFor = (num) => padding.left + (num / MAX) * plotWidth;
+  const lineY = PADDING_TOP + ARC_AREA_HEIGHT;
+  const maxArcHeight = ARC_AREA_HEIGHT - ARC_HEIGHT_MARGIN;
 
   if (!Number.isInteger(n) || n < MIN || n > MAX) {
+    canvas.style.height = `${lineY + LABEL_BASE_HEIGHT}px`;
+    canvas.width = width * dpr;
+    canvas.height = (lineY + LABEL_BASE_HEIGHT) * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, lineY + LABEL_BASE_HEIGHT);
     return;
   }
 
   const path = pathToTarget(n);
-  const nodeColors = path.map((num) => colorForNodeDistance(stepsToTarget[num]));
+  const isDeadEnd = path[path.length - 1] !== TARGET;
+  const numArcs = path.length - 1;
 
-  // Work out how many label rows we need before fixing the baseline position,
-  // so the canvas grows the bottom margin instead of letting labels overlap.
-  ctx.font = "13px ui-monospace, monospace";
-  const labelEntries = assignLabelRows(
-    ctx,
-    path.map((num) => ({ num, x: xFor(num), text: formatDigits(num) }))
+  // Per-arc color/height, by position within this path (not absolute
+  // distance-to-target): arc 0 is always max height + red, the last arc is
+  // always min height + green. Node colors borrow the arc that leads into
+  // them; the starting node borrows arc 0's color (also red) since it has
+  // no incoming arc of its own.
+  const arcStyles = [];
+  for (let i = 0; i < numArcs; i++) {
+    const t = numArcs > 1 ? i / (numArcs - 1) : 0;
+    arcStyles.push({
+      color: isDeadEnd ? STUCK_COLOR : colorForT(t),
+      height: maxArcHeight * (1 - t * (1 - MIN_HEIGHT_RATIO)),
+    });
+  }
+  const nodeColors = path.map((_, i) =>
+    i === 0 ? arcStyles[0]?.color ?? (isDeadEnd ? STUCK_COLOR : colorForT(1)) : arcStyles[i - 1].color
   );
-  const rowCount = Math.max(...labelEntries.map((e) => e.row)) + 1;
-  padding.bottom = 30 + (rowCount - 1) * LABEL_ROW_HEIGHT;
 
-  const lineY = height - padding.bottom;
-  const maxArcHeight = height - padding.top - padding.bottom - 10;
+  // Skip label layout entirely when cycling fast: nobody can read flashing
+  // numbers anyway, and it saves a measureText pass per frame. The canvas
+  // just stays at its single-row height instead.
+  let labelEntries = [];
+  let height = lineY + LABEL_BASE_HEIGHT;
+  if (showLabels) {
+    ctx.font = "13px ui-monospace, monospace";
+    labelEntries = assignLabelRows(
+      ctx,
+      path.map((num) => ({ num, x: xFor(num), text: formatDigits(num) }))
+    );
+    const rowCount = Math.max(...labelEntries.map((e) => e.row)) + 1;
+    height = lineY + LABEL_BASE_HEIGHT + (rowCount - 1) * LABEL_ROW_HEIGHT;
+  }
+
+  canvas.style.height = `${height}px`;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
 
   // baseline
   ctx.strokeStyle = "#1a1a1a";
@@ -78,20 +113,18 @@ function renderNumberLineView(canvas, n) {
   ctx.lineTo(padding.left + plotWidth, lineY);
   ctx.stroke();
 
-  // arcs between consecutive numbers in the path; each arc takes the color
-  // of the node it leads into (the number "arrives" already colored).
-  for (let i = 0; i < path.length - 1; i++) {
+  // arcs between consecutive numbers in the path
+  for (let i = 0; i < numArcs; i++) {
     const from = path[i];
     const to = path[i + 1];
-    const fromDistance = Math.max(1, stepsToTarget[from]); // height only; clamp stuck (-1) up
-    const arcHeight = (fromDistance / MAX_DISTANCE) * maxArcHeight;
+    const { color, height: arcHeight } = arcStyles[i];
 
     const x1 = xFor(from);
     const x2 = xFor(to);
     const midX = (x1 + x2) / 2;
     const controlY = lineY - arcHeight * 2; // quadratic control point overshoots so the curve peak is roughly arcHeight
 
-    ctx.strokeStyle = nodeColors[i + 1];
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(x1, lineY);
@@ -99,9 +132,11 @@ function renderNumberLineView(canvas, n) {
     ctx.stroke();
   }
 
+  if (!showLabels) return;
+
   // ticks + labels for every number visited, colored like the arc that led
-  // to them (the starting number has no incoming arc, so it gets its own
-  // distance-based color instead), stacked into rows to avoid overlap.
+  // to them (the starting number has no incoming arc, so it borrows arc 0's
+  // color instead), stacked into rows to avoid overlap.
   ctx.textAlign = "center";
   labelEntries.forEach(({ num, x, text, row }, i) => {
     const isEndpoint = i === labelEntries.length - 1;
