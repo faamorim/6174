@@ -125,29 +125,7 @@ function buildCuriosities() {
     }
   }
 
-  // 8 & 9. Anagram families
-  const families = new Map();
-  for (let n = MIN; n <= MAX; n++) {
-    if (stepsToTarget[n] <= 0) continue; // skip kernel and stuck
-    const key = formatDigits(n).split("").sort().join("");
-    if (!families.has(key)) families.set(key, []);
-    families.get(key).push(n);
-  }
-  let largestFamily = [], slowestFamily = [];
-  for (const members of families.values()) {
-    if (members.length > largestFamily.length) largestFamily = members;
-    if (stepsToTarget[members[0]] === maxSteps && members.length > slowestFamily.length) {
-      slowestFamily = members;
-    }
-  }
-  largestFamily = [...largestFamily].sort((a, b) => a - b);
-  slowestFamily = [...slowestFamily].sort((a, b) => a - b);
-  const largestKey = largestFamily.length > 0
-    ? formatDigits(largestFamily[0]).split("").sort().join("") : "";
-  const slowestKey = slowestFamily.length > 0
-    ? formatDigits(slowestFamily[0]).split("").sort().join("") : "";
-
-  // 10. Average & mode steps
+  // 8. Average & mode steps
   let totalSteps = 0, totalCount = 0;
   const stepFreq = new Map();
   for (let n = MIN; n <= MAX; n++) {
@@ -166,10 +144,6 @@ function buildCuriosities() {
   function arith(n) {
     const { desc, asc } = descAscValues(n);
     return `${formatDigits(desc)} − ${formatDigits(asc)} = ${formatDigits(nextStep[n])}`;
-  }
-
-  function famDigits(family) {
-    return `{${formatDigits(family[0]).split("").sort().join(", ")}}`;
   }
 
   // ── Assemble items ──────────────────────────────────────────────────────────
@@ -241,24 +215,6 @@ function buildCuriosities() {
     detail: `${mostVisitedCount} starting numbers pass through ${formatDigits(mostVisitedN)} at some step.\nIt has ${children[mostVisitedN].length} direct predecessor(s) and sits ${stepsToTarget[mostVisitedN]} step(s) from ${formatDigits(TARGET)}.`,
     detailLabel: "Why this number?",
     numbers: [mostVisitedN], extraNumbers: [], view: "numberline",
-  });
-
-  if (largestFamily.length > 0) items.push({
-    title: "Largest anagram family",
-    tagline: `${largestFamily.length} permutations of ${famDigits(largestFamily)}, each taking ${stepsToTarget[largestFamily[0]]} step(s).`,
-    info: "All rearrangements of the same digits always produce the same Kaprekar step — so every permutation takes identical steps to reach the kernel. They form a 'family'.",
-    detail: `Every permutation of ${famDigits(largestFamily)} converges in exactly ${stepsToTarget[largestFamily[0]]} step(s):`,
-    detailLabel: `See all ${largestFamily.length} members`,
-    numbers: [largestFamily[0]], extraNumbers: largestFamily, view: "steps", extraView: "steps",
-  });
-
-  if (slowestFamily.length > 0 && slowestKey !== largestKey) items.push({
-    title: "Slowest anagram family",
-    tagline: `${slowestFamily.length} permutations of ${famDigits(slowestFamily)}, all needing ${maxSteps} steps.`,
-    info: "The anagram family requiring the maximum number of steps. Every permutation of these digits takes the longest possible Kaprekar journey.",
-    detail: `Every permutation of ${famDigits(slowestFamily)} takes the full ${maxSteps} steps to converge:`,
-    detailLabel: `See all ${slowestFamily.length} members`,
-    numbers: [slowestFamily[0]], extraNumbers: slowestFamily, view: "steps", extraView: "steps",
   });
 
   // Per-step breakdown for the stats detail
