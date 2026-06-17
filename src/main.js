@@ -107,7 +107,7 @@ function renderActiveView() {
   } else if (activeView === "bars") {
     const selectedSteps = Number.isInteger(n) && n >= MIN && n <= MAX ? stepsToTarget[n] : undefined;
     renderBarsView(barsCanvas, selectedSteps);
-    renderImageSetsChart(imagesetsCanvas);
+    renderImageSetsChart(imagesetsCanvas, n);
     renderStepsHeatmap(stepsDataCanvas, stepsLabelCanvas, n);
     renderLevelHeatmap(levelDataCanvas, levelLabelCanvas, n, currentLevel);
   } else if (activeView === "numberline") {

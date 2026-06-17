@@ -17,6 +17,11 @@ function renderStepsView(container, n) {
     return;
   }
 
+  const header = document.createElement("div");
+  header.className = "steps-output__header";
+  header.textContent = formatDigits(n);
+  container.appendChild(header);
+
   const path = pathToTarget(n);
 
   for (let i = 0; i < path.length - 1; i++) {

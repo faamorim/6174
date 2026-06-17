@@ -241,7 +241,7 @@ function renderLevelHeatmap(dataCanvas, labelCanvas, n, level) {
 // ─── Bar charts ──────────────────────────────────────────────────────────────
 
 /** How many distinct numbers appear as the N-th step output across all starts. */
-function renderImageSetsChart(canvas) {
+function renderImageSetsChart(canvas, n) {
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
   const width = canvas.clientWidth || canvas.width;
@@ -251,9 +251,19 @@ function renderImageSetsChart(canvas) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
-  const padding = { top: 45, right: 20, bottom: 40, left: 20 };
+  const padding = { top: 45, right: 20, bottom: 56, left: 20 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
+
+  // Image sets are nested (imageSets[k+1] ⊆ imageSets[k]), so n appears in
+  // all bars 0..lastStepIdx. lastStepIdx = -1 means n is never a step output.
+  const nValid = Number.isInteger(n) && n >= MIN && n <= MAX;
+  let lastStepIdx = -1;
+  if (nValid) {
+    for (let k = imageSets.length - 1; k >= 0; k--) {
+      if (imageSets[k].has(n)) { lastStepIdx = k; break; }
+    }
+  }
 
   const maxCount = Math.max(...imageSets.map((s) => s.size));
   const barGap = 12;
@@ -271,10 +281,28 @@ function renderImageSetsChart(canvas) {
     ctx.fillStyle = `rgb(${r},${g},${b})`;
     ctx.fillRect(x, y, barWidth, barHeight);
 
+    // Outline bars where n is present; stronger outline on the last one
+    if (nValid && i <= lastStepIdx) {
+      ctx.strokeStyle = i === lastStepIdx ? "#333" : "rgba(0,0,0,0.2)";
+      ctx.lineWidth = i === lastStepIdx ? 2.5 : 1;
+      ctx.strokeRect(x, y, barWidth, barHeight);
+    }
+
     ctx.fillStyle = "#1a1a1a";
     ctx.fillText(String(s.size), x + barWidth / 2, y - 6);
     ctx.fillText(String(i + 1), x + barWidth / 2, padding.top + plotHeight + 20);
   });
+
+  // Caption showing where n falls in the image sets
+  if (nValid) {
+    ctx.font = "11px system-ui, sans-serif";
+    ctx.fillStyle = "#888";
+    ctx.textAlign = "center";
+    const caption = lastStepIdx === -1
+      ? `${formatDigits(n)} is never a step output`
+      : `${formatDigits(n)} appears through step ${lastStepIdx + 1}`;
+    ctx.fillText(caption, width / 2, padding.top + plotHeight + 40);
+  }
 
   ctx.fillStyle = "#666";
   ctx.font = "12px system-ui, sans-serif";
