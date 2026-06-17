@@ -10,6 +10,7 @@ const levelDataCanvas = document.querySelector("#level-data-canvas");
 const levelLabelCanvas = document.querySelector("#level-label-canvas");
 const levelSlider = document.querySelector("#level-slider");
 const levelDisplay = document.querySelector("#level-display");
+const curiositiesOutput = document.querySelector("#curiosities-output");
 const numberlineCanvas = document.querySelector("#numberline-canvas");
 const cycleButton = document.querySelector("#cycle-button");
 const cycleSpeedInput = document.querySelector("#cycle-speed");
@@ -20,6 +21,7 @@ const views = {
   steps: document.querySelector("#view-steps"),
   bars: document.querySelector("#view-bars"),
   numberline: document.querySelector("#view-numberline"),
+  curiosities: document.querySelector("#view-curiosities"),
 };
 
 let activeView = "steps";
@@ -34,6 +36,11 @@ let cycleDirection = 1;
 let cycleSpeed = Number(cycleSpeedInput.value); // numbers per second
 let cycleLastTimestamp = null;
 let cycleStepAccumulator = 0;
+
+function goToNumber(n, view) {
+  input.value = String(n);
+  setActiveView(view);
+}
 
 function levelLabel(level) {
   if (level < 0) return "Numbers never produced by any step";
@@ -105,6 +112,8 @@ function renderActiveView() {
     renderLevelHeatmap(levelDataCanvas, levelLabelCanvas, n, currentLevel);
   } else if (activeView === "numberline") {
     renderNumberLineView(numberlineCanvas, n);
+  } else if (activeView === "curiosities") {
+    renderCuriositiesView(curiositiesOutput, goToNumber);
   }
 }
 
@@ -135,6 +144,7 @@ function setNumDigits(numDigits) {
   stopCycle();
   rebuildKaprekarData(numDigits);
   rebuildBarsData();
+  rebuildCuriositiesData();
   updateLevelSliderRange();
 
   input.maxLength = numDigits;
