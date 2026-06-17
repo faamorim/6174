@@ -39,9 +39,9 @@ function assignLabelRows(ctx, entries) {
 }
 
 /**
- * Draws only the picked number's path to 6174 (or to its dead end) as a
- * series of arcs on a 0..9999 number line. No zoom/LOD: a path is at
- * most 7 hops, so it's always cheap to draw in full.
+ * Draws only the picked number's path to TARGET (or to its dead end) as a
+ * series of arcs on a 0..MAX number line. No zoom/LOD: a path is at
+ * most a handful of hops, so it's always cheap to draw in full.
  */
 function renderNumberLineView(canvas, n, { showLabels = true } = {}) {
   const ctx = canvas.getContext("2d");
@@ -154,11 +154,11 @@ function renderNumberLineView(canvas, n, { showLabels = true } = {}) {
     ctx.fillText(text, x, lineY + 22 + row * LABEL_ROW_HEIGHT);
   });
 
-  // 0 / 9999 range labels
+  // range labels at both ends of the number line
   ctx.fillStyle = "#999";
   ctx.font = "12px ui-monospace, monospace";
   ctx.textAlign = "left";
-  ctx.fillText("0000", padding.left, lineY - 10);
+  ctx.fillText(formatDigits(MIN), padding.left, lineY - 10);
   ctx.textAlign = "right";
-  ctx.fillText(String(MAX), padding.left + plotWidth, lineY - 10);
+  ctx.fillText(formatDigits(MAX), padding.left + plotWidth, lineY - 10);
 }

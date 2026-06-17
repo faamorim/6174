@@ -21,6 +21,28 @@ h1 {
   margin: 0 0 1.5rem;
 }
 
+.digit-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.digit-tabs__button {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.7rem;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  background: #fff;
+  color: #666;
+}
+
+.digit-tabs__button.is-active {
+  background: #555;
+  color: #fff;
+  border-color: #555;
+}
+
 .view-tabs {
   display: flex;
   gap: 0.5rem;
@@ -69,6 +91,16 @@ h1 {
   color: #444;
 }
 
+#cycle-button {
+  min-width: 5.5rem;
+}
+
+#cycle-speed-value {
+  display: inline-block;
+  min-width: 4ch;
+  text-align: right;
+}
+
 #cycle-speed {
   width: 180px;
 }
@@ -77,6 +109,58 @@ h1 {
   width: 100%;
   max-width: 640px;
   height: 360px;
+}
+
+#imagesets-canvas {
+  width: 100%;
+  max-width: 640px;
+  height: 200px;
+}
+
+.heatmap-block {
+  width: 100%;
+  max-width: 640px;
+}
+
+.heatmap-block__title {
+  font-size: 0.82rem;
+  color: #555;
+  margin: 0 0 0.25rem;
+}
+
+.heatmap-slider {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  margin-bottom: 0.3rem;
+}
+
+.heatmap-strip {
+  position: relative;
+  width: 100%;
+  height: 40px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.heatmap-strip canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Steps data canvas is full-resolution (one pixel per number); pixelated
+   keeps each column crisp when CSS scales it down to display width. */
+#steps-data-canvas {
+  image-rendering: pixelated;
+}
+
+/* Label row sits below each strip: triangle marker + number + range labels. */
+.heatmap-label {
+  display: block;
+  width: 100%;
+  height: 30px;
+  margin-top: 1px;
 }
 
 #numberline-canvas {

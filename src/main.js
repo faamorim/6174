@@ -3,11 +3,19 @@ const input = document.querySelector("#number-input");
 const goButton = document.querySelector("#go-button");
 const output = document.querySelector("#steps-output");
 const barsCanvas = document.querySelector("#bars-canvas");
+const imagesetsCanvas = document.querySelector("#imagesets-canvas");
+const stepsDataCanvas = document.querySelector("#steps-data-canvas");
+const stepsLabelCanvas = document.querySelector("#steps-label-canvas");
+const levelDataCanvas = document.querySelector("#level-data-canvas");
+const levelLabelCanvas = document.querySelector("#level-label-canvas");
+const levelSlider = document.querySelector("#level-slider");
+const levelDisplay = document.querySelector("#level-display");
 const numberlineCanvas = document.querySelector("#numberline-canvas");
 const cycleButton = document.querySelector("#cycle-button");
 const cycleSpeedInput = document.querySelector("#cycle-speed");
 const cycleSpeedValue = document.querySelector("#cycle-speed-value");
 const tabButtons = document.querySelectorAll(".view-tabs__button");
+const digitButtons = document.querySelectorAll(".digit-tabs__button");
 const views = {
   steps: document.querySelector("#view-steps"),
   bars: document.querySelector("#view-bars"),
@@ -15,6 +23,7 @@ const views = {
 };
 
 let activeView = "steps";
+let currentLevel = 1;
 
 // requestAnimationFrame-driven so speed isn't capped by setInterval's timer
 // resolution: redraws stay at the browser's frame rate, while the number of
@@ -26,13 +35,19 @@ let cycleSpeed = Number(cycleSpeedInput.value); // numbers per second
 let cycleLastTimestamp = null;
 let cycleStepAccumulator = 0;
 
+function levelLabel(level) {
+  if (level < 0) return "Numbers never produced by any step";
+  return `Numbers produced as step ${level}`;
+}
+
 function stopCycle() {
   if (cycleRafId === null) return;
   cancelAnimationFrame(cycleRafId);
   cycleRafId = null;
   cycleButton.textContent = "Cycle";
   cycleButton.classList.remove("is-cycling");
-  renderActiveView(); // redraw with labels once stopped
+  input.value = String(cycleNumber); // land on the number where cycling stopped
+  renderActiveView();
 }
 
 function cycleTick(timestamp) {
@@ -56,6 +71,7 @@ function cycleTick(timestamp) {
   }
 
   if (steps > 0) {
+    input.value = String(cycleNumber);
     renderNumberLineView(numberlineCanvas, cycleNumber, { showLabels: false });
   }
   cycleRafId = requestAnimationFrame(cycleTick);
@@ -66,7 +82,6 @@ function startCycle() {
   if (!Number.isInteger(cycleNumber) || cycleNumber < MIN || cycleNumber > MAX) {
     cycleNumber = MIN;
   }
-  cycleDirection = 1;
   cycleLastTimestamp = null;
   cycleStepAccumulator = 0;
   cycleButton.textContent = "Stop";
@@ -85,6 +100,9 @@ function renderActiveView() {
   } else if (activeView === "bars") {
     const selectedSteps = Number.isInteger(n) && n >= MIN && n <= MAX ? stepsToTarget[n] : undefined;
     renderBarsView(barsCanvas, selectedSteps);
+    renderImageSetsChart(imagesetsCanvas);
+    renderStepsHeatmap(stepsDataCanvas, stepsLabelCanvas, n);
+    renderLevelHeatmap(levelDataCanvas, levelLabelCanvas, n, currentLevel);
   } else if (activeView === "numberline") {
     renderNumberLineView(numberlineCanvas, n);
   }
@@ -102,8 +120,51 @@ function setActiveView(view) {
   renderActiveView();
 }
 
+function updateLevelSliderRange() {
+  const maxSteps = histogram.length >= 2 ? histogram[histogram.length - 2].steps : 7;
+  levelSlider.max = maxSteps;
+  if (currentLevel > maxSteps) {
+    currentLevel = maxSteps;
+    levelSlider.value = String(maxSteps);
+  }
+  // Always refresh the label — formatDigits(TARGET) changes on digit count switch
+  levelDisplay.textContent = levelLabel(currentLevel);
+}
+
+function setNumDigits(numDigits) {
+  stopCycle();
+  rebuildKaprekarData(numDigits);
+  rebuildBarsData();
+  updateLevelSliderRange();
+
+  input.maxLength = numDigits;
+  input.placeholder = TARGET !== null ? formatDigits(TARGET) : "";
+
+  const n = Math.floor(Math.random() * (MAX - MIN + 1)) + MIN;
+  input.value = String(n);
+
+  for (const btn of digitButtons) {
+    btn.classList.toggle("is-active", Number(btn.dataset.digits) === numDigits);
+  }
+
+  renderActiveView();
+}
+
 tabButtons.forEach((btn) => {
   btn.addEventListener("click", () => setActiveView(btn.dataset.view));
+});
+
+digitButtons.forEach((btn) => {
+  btn.addEventListener("click", () => setNumDigits(Number(btn.dataset.digits)));
+});
+
+levelSlider.addEventListener("input", () => {
+  // Slider value 0 maps to "never reachable" (level -1); 1..max map directly
+  currentLevel = Number(levelSlider.value) === 0 ? -1 : Number(levelSlider.value);
+  levelDisplay.textContent = levelLabel(currentLevel);
+  if (activeView === "bars") {
+    renderLevelHeatmap(levelDataCanvas, levelLabelCanvas, currentNumber(), currentLevel);
+  }
 });
 
 cycleButton.addEventListener("click", () => {
@@ -120,6 +181,7 @@ goButton.addEventListener("click", () => {
   stopCycle();
   renderActiveView();
 });
+
 input.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     stopCycle();
@@ -127,6 +189,10 @@ input.addEventListener("keydown", (e) => {
   }
 });
 
+// Initialize input constraints to match the default digit count (4)
+input.maxLength = NUM_DIGITS;
+input.placeholder = TARGET !== null ? formatDigits(TARGET) : "";
+levelDisplay.textContent = levelLabel(currentLevel);
 const initial = Math.floor(Math.random() * (MAX - MIN + 1)) + MIN;
 input.value = String(initial);
 setActiveView("steps");

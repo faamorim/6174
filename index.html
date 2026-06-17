@@ -11,6 +11,11 @@
     <h1>6174</h1>
     <p class="subtitle">Visualizer for Kaprekar's routine</p>
 
+    <div class="digit-tabs">
+      <button class="digit-tabs__button" data-digits="3">3 digits</button>
+      <button class="digit-tabs__button is-active" data-digits="4">4 digits</button>
+    </div>
+
     <nav class="view-tabs">
       <button class="view-tabs__button" data-view="steps">Steps</button>
       <button class="view-tabs__button" data-view="bars">Distribution</button>
@@ -18,7 +23,7 @@
     </nav>
 
     <div class="controls">
-      <input type="text" id="number-input" inputmode="numeric" maxlength="4" placeholder="3524" />
+      <input type="text" id="number-input" inputmode="numeric" />
       <button id="go-button">Go</button>
     </div>
 
@@ -28,6 +33,24 @@
 
     <section id="view-bars" class="view" hidden>
       <canvas id="bars-canvas" width="640" height="360"></canvas>
+      <canvas id="imagesets-canvas" width="640" height="200"></canvas>
+
+      <div class="heatmap-block">
+        <p class="heatmap-block__title">Step count — full range</p>
+        <div class="heatmap-strip">
+          <canvas id="steps-data-canvas"></canvas>
+        </div>
+        <canvas id="steps-label-canvas" class="heatmap-label"></canvas>
+      </div>
+
+      <div class="heatmap-block">
+        <p class="heatmap-block__title"><span id="level-display"></span></p>
+        <input type="range" id="level-slider" min="0" max="7" value="1" step="1" class="heatmap-slider" />
+        <div class="heatmap-strip">
+          <canvas id="level-data-canvas"></canvas>
+        </div>
+        <canvas id="level-label-canvas" class="heatmap-label"></canvas>
+      </div>
     </section>
 
     <section id="view-numberline" class="view" hidden>
