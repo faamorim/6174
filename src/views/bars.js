@@ -80,16 +80,23 @@ function stepsRgb(steps) {
   return hslToRgb(t * 120, 70, 45);
 }
 
-/** Paint the steps data canvas at full resolution: one pixel column per number. */
+/** Paint the steps data canvas at display resolution, sampling one number per pixel. */
 function fillHeatmapData(dataCanvas, rgbFn) {
-  dataCanvas.width = MAX + 1;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = dataCanvas.clientWidth || 640;
+  const pixW = Math.round(cssW * dpr);
+  const range = MAX - MIN + 1;
+
+  dataCanvas.width = pixW;
   dataCanvas.height = 1;
   const ctx = dataCanvas.getContext("2d");
-  const imageData = ctx.createImageData(MAX + 1, 1);
+  const imageData = ctx.createImageData(pixW, 1);
   const d = imageData.data;
-  for (let n = 0; n <= MAX; n++) {
-    const [r, g, b] = rgbFn(n);
-    const i = n * 4;
+
+  for (let px = 0; px < pixW; px++) {
+    const num = MIN + Math.round((px / Math.max(1, pixW - 1)) * (range - 1));
+    const [r, g, b] = rgbFn(num);
+    const i = px * 4;
     d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = 255;
   }
   ctx.putImageData(imageData, 0, 0);
@@ -310,11 +317,12 @@ function renderBarsView(canvas, selectedSteps) {
     ctx.fillText(bucket.label, x + barWidth / 2, padding.top + plotHeight + 20);
   });
 
-  const targetLabel = TARGET !== null ? formatDigits(TARGET) : "kernel";
   ctx.fillStyle = "#666";
   ctx.font = "12px system-ui, sans-serif";
   ctx.fillText(
-    `steps to reach ${targetLabel} ("stuck" = repdigits)`,
+    TARGET !== null
+      ? `steps to reach ${formatDigits(TARGET)} ("stuck" = repdigits)`
+      : `steps to converge to a cycle ("stuck" = repdigits)`,
     width / 2,
     16
   );

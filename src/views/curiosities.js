@@ -9,28 +9,41 @@ function descAscValues(n) {
   };
 }
 
+/** Minimum arithmetic distance from n to any cycle member. */
+function distToAttractor(n) {
+  if (TARGET !== null) return Math.abs(n - TARGET);
+  let min = Infinity;
+  for (const m of CYCLE_MEMBERS) {
+    const d = Math.abs(n - m);
+    if (d < min) min = d;
+  }
+  return min;
+}
+
 /**
- * Iterative post-order subtree-size computation for the Kaprekar tree rooted
- * at TARGET. sizes[n] = count of nodes in n's subtree (including n itself).
- * TARGET is excluded from results so it doesn't dominate the "most-visited"
- * curiosity — its subtree IS the entire valid tree.
+ * Post-order subtree sizes for the Kaprekar forest rooted at all cycle members.
+ * Cycle-to-cycle edges are excluded so the forest has clean trees.
+ * sizes[n] = count of nodes in n's subtree (including n itself).
  */
 function computeSubtreeSizes() {
   const sizes = new Int32Array(MAX + 1);
-  if (TARGET === null) return sizes;
+  if (CYCLE_MEMBERS.size === 0) return sizes;
 
-  // Pre-order traversal → reversed gives valid bottom-up order
   const order = [];
-  const stack = [TARGET];
+  const stack = [...CYCLE_MEMBERS];
   while (stack.length > 0) {
     const n = stack.pop();
     order.push(n);
-    for (const c of children[n]) stack.push(c);
+    for (const c of children[n]) {
+      if (!CYCLE_MEMBERS.has(c)) stack.push(c);
+    }
   }
   for (let i = order.length - 1; i >= 0; i--) {
     const n = order[i];
     sizes[n] = 1;
-    for (const c of children[n]) sizes[n] += sizes[c];
+    for (const c of children[n]) {
+      if (!CYCLE_MEMBERS.has(c)) sizes[n] += sizes[c];
+    }
   }
   return sizes;
 }
@@ -38,25 +51,18 @@ function computeSubtreeSizes() {
 // ─── Data builder ─────────────────────────────────────────────────────────────
 
 function buildCuriosities() {
-  if (TARGET === null) {
-    return [{
-      title: "No kernel for this digit count",
-      tagline: "Kaprekar's routine has no fixed kernel for this number of digits.",
-      info: "A kernel exists only for certain digit counts (e.g. 495 for 3-digit, 6174 for 4-digit).",
-      detail: "", detailLabel: "", numbers: [], extraNumbers: [], view: "steps",
-    }];
-  }
+  const attractorLabel = TARGET !== null ? formatDigits(TARGET) : "the cycle";
 
   let maxSteps = 0;
   for (let n = MIN; n <= MAX; n++) {
     if (stepsToTarget[n] > maxSteps) maxSteps = stepsToTarget[n];
   }
 
-  // 1. Closest to TARGET needing max steps
+  // 1. Closest to attractor needing max steps
   let closestMaxN = null, closestDist = Infinity;
   for (let n = MIN; n <= MAX; n++) {
     if (stepsToTarget[n] === maxSteps) {
-      const d = Math.abs(n - TARGET);
+      const d = distToAttractor(n);
       if (d < closestDist) { closestDist = d; closestMaxN = n; }
     }
   }
@@ -65,7 +71,7 @@ function buildCuriosities() {
   let farthestOneN = null, farthestDist = 0;
   for (let n = MIN; n <= MAX; n++) {
     if (stepsToTarget[n] === 1) {
-      const d = Math.abs(n - TARGET);
+      const d = distToAttractor(n);
       if (d > farthestDist) { farthestDist = d; farthestOneN = n; }
     }
   }
@@ -79,16 +85,23 @@ function buildCuriosities() {
     }
   }
 
-  // 4. Smallest non-zero step (valid numbers only)
-  let smallStepN = null, smallStepDist = Infinity;
-  for (let n = MIN; n <= MAX; n++) {
-    if (stepsToTarget[n] > 0) {
-      const d = Math.abs(nextStep[n] - n);
-      if (d > 0 && d < smallStepDist) { smallStepDist = d; smallStepN = n; }
+  // 1b. For multi-cycle: also closest to its OWN cycle (the one it actually enters)
+  let closestToOwnN = null, closestToOwnDist = Infinity;
+  if (TARGET === null) {
+    for (let n = MIN; n <= MAX; n++) {
+      if (stepsToTarget[n] === maxSteps) {
+        const path = pathToTarget(n);
+        const entry = path[path.length - 1];
+        if (!CYCLE_MEMBERS.has(entry)) continue;
+        const ownCycle = CYCLE_OF.get(entry);
+        let d = Infinity;
+        for (const m of ownCycle) d = Math.min(d, Math.abs(n - m));
+        if (d < closestToOwnDist) { closestToOwnDist = d; closestToOwnN = n; }
+      }
     }
   }
 
-  // 5. Longest path by total arithmetic distance
+  // 4. Longest path by total arithmetic distance
   let longPathN = null, longPathTotal = 0;
   for (let n = MIN; n <= MAX; n++) {
     if (stepsToTarget[n] > 0) {
@@ -106,21 +119,19 @@ function buildCuriosities() {
   }
   if (longPathLines.length) longPathLines.push(`Total distance: ${longPathTotal}`);
 
-  // 6. Most direct predecessors (excluding TARGET — children[TARGET] are trivially many)
+  // 6. Most direct predecessors (excluding all cycle members)
   let mostPredsN = null, mostPredsCount = 0;
   for (let n = MIN; n <= MAX; n++) {
-    if (n !== TARGET && children[n].length > mostPredsCount) {
+    if (!CYCLE_MEMBERS.has(n) && children[n].length > mostPredsCount) {
       mostPredsCount = children[n].length; mostPredsN = n;
     }
   }
 
-  // 7. Most-visited waypoint — largest subtree size, excluding TARGET itself.
-  // TARGET is excluded because its subtree IS the entire valid tree, making it
-  // the trivial winner. We want the most-visited *intermediate* node.
+  // 7. Most-visited waypoint — largest subtree, excluding all cycle members
   const subtreeSizes = computeSubtreeSizes();
   let mostVisitedN = null, mostVisitedCount = 0;
   for (let n = MIN; n <= MAX; n++) {
-    if (n !== TARGET && stepsToTarget[n] > 0 && subtreeSizes[n] > mostVisitedCount) {
+    if (!CYCLE_MEMBERS.has(n) && stepsToTarget[n] > 0 && subtreeSizes[n] > mostVisitedCount) {
       mostVisitedCount = subtreeSizes[n]; mostVisitedN = n;
     }
   }
@@ -150,20 +161,44 @@ function buildCuriosities() {
 
   const items = [];
 
+  // Multi-cycle digit counts: info card showing all cycles
+  if (TARGET === null) {
+    const cycleList = CYCLES.map(c => c.map(formatDigits).join(" → ") + " → …").join("\n\n");
+    items.push({
+      title: `${CYCLES.length} attractor cycle${CYCLES.length !== 1 ? "s" : ""}`,
+      tagline: `${NUM_DIGITS}-digit numbers converge to ${CYCLES.length} distinct cycles instead of a single fixed point.`,
+      info: "Some digit counts have no Kaprekar kernel. Instead, all valid numbers converge to a repeating cycle of multiple values — which cycle depends on the starting number.",
+      detail: cycleList,
+      detailLabel: `Show all cycles`,
+      numbers: [], extraNumbers: [], view: "steps",
+    });
+  }
+
+  const closestLabel = TARGET !== null ? formatDigits(TARGET) : "any cycle";
+
   if (closestMaxN !== null) items.push({
-    title: `Closest to ${formatDigits(TARGET)}, longest journey`,
+    title: `Closest to ${closestLabel}, longest journey`,
     tagline: `${formatDigits(closestMaxN)} is only ${closestDist} away yet takes all ${maxSteps} steps.`,
-    info: "Arithmetic distance from the kernel and the number of Kaprekar steps needed are completely unrelated — digit arrangement is all that matters.",
-    detail: `${formatDigits(closestMaxN)} sits just ${closestDist} away from ${formatDigits(TARGET)} numerically, yet its digit arrangement forces the full ${maxSteps}-step journey.`,
+    info: "Arithmetic distance from the attractor and the number of Kaprekar steps needed are completely unrelated — digit arrangement is all that matters.",
+    detail: `${formatDigits(closestMaxN)} sits just ${closestDist} from ${closestLabel} numerically, yet its digit arrangement forces the full ${maxSteps}-step journey.`,
     detailLabel: "Why this number?",
     numbers: [closestMaxN], extraNumbers: [], view: "numberline",
   });
 
+  if (TARGET === null && closestToOwnN !== null && closestToOwnN !== closestMaxN) items.push({
+    title: "Closest to its own cycle, longest journey",
+    tagline: `${formatDigits(closestToOwnN)} is only ${closestToOwnDist} from the cycle it enters, yet takes all ${maxSteps} steps.`,
+    info: "Even when a number is close to the cycle it will eventually enter, digit arrangement alone determines how many steps the journey takes.",
+    detail: `${formatDigits(closestToOwnN)} ends up only ${closestToOwnDist} from its own attractor cycle, yet its digit arrangement forces the full ${maxSteps}-step journey.`,
+    detailLabel: "Why this number?",
+    numbers: [closestToOwnN], extraNumbers: [], view: "numberline",
+  });
+
   if (farthestOneN !== null) items.push({
     title: "Farthest away, yet one step",
-    tagline: `${formatDigits(farthestOneN)} is ${farthestDist} away from ${formatDigits(TARGET)} but reaches it in one step.`,
-    info: "A number far from the kernel numerically can still reach it in a single step if its digit arrangement directly produces the kernel.",
-    detail: `${arith(farthestOneN)}\nDistance from kernel: ${farthestDist}`,
+    tagline: `${formatDigits(farthestOneN)} is ${farthestDist} away from ${attractorLabel} but reaches it in one step.`,
+    info: "A number far from the attractor numerically can still reach a cycle member in a single step if its digit arrangement directly produces one.",
+    detail: `${arith(farthestOneN)}\nDistance from attractor: ${farthestDist}`,
     detailLabel: "Show arithmetic",
     numbers: [farthestOneN], extraNumbers: [], view: "numberline",
   });
@@ -175,15 +210,6 @@ function buildCuriosities() {
     detail: `${arith(bigLeapN)}\nLeap: |${formatDigits(nextStep[bigLeapN])} − ${formatDigits(bigLeapN)}| = ${bigLeapDist}`,
     detailLabel: "Show arithmetic",
     numbers: [bigLeapN], extraNumbers: [], view: "numberline",
-  });
-
-  if (smallStepN !== null) items.push({
-    title: "Smallest single step",
-    tagline: `${formatDigits(smallStepN)} → ${formatDigits(nextStep[smallStepN])}: barely moves by ${smallStepDist}.`,
-    info: "The smallest non-zero arithmetic gap between a number and its Kaprekar result. Some numbers barely shift at all in a single step.",
-    detail: `${arith(smallStepN)}\nStep: |${formatDigits(nextStep[smallStepN])} − ${formatDigits(smallStepN)}| = ${smallStepDist}`,
-    detailLabel: "Show arithmetic",
-    numbers: [smallStepN], extraNumbers: [], view: "numberline",
   });
 
   if (longPathN !== null) items.push({
@@ -209,10 +235,10 @@ function buildCuriosities() {
 
   if (mostVisitedN !== null) items.push({
     title: "Most-visited waypoint",
-    tagline: `${formatDigits(mostVisitedN)} appears in ${mostVisitedCount} different paths to ${formatDigits(TARGET)}.`,
-    info: "Subtree size in the Kaprekar tree (excluding the kernel itself, which would trivially win): how many starting numbers eventually pass through this node at any step.",
+    tagline: `${formatDigits(mostVisitedN)} appears in ${mostVisitedCount} different paths to ${attractorLabel}.`,
+    info: "Subtree size in the Kaprekar forest (excluding cycle members themselves): how many starting numbers eventually pass through this node at any step.",
     // TODO: redirect to graph view once available — subtree size is most visible in the tree diagram
-    detail: `${mostVisitedCount} starting numbers pass through ${formatDigits(mostVisitedN)} at some step.\nIt has ${children[mostVisitedN].length} direct predecessor(s) and sits ${stepsToTarget[mostVisitedN]} step(s) from ${formatDigits(TARGET)}.`,
+    detail: `${mostVisitedCount} starting numbers pass through ${formatDigits(mostVisitedN)} at some step.\nIt has ${children[mostVisitedN].length} direct predecessor(s) and sits ${stepsToTarget[mostVisitedN]} step(s) from ${attractorLabel}.`,
     detailLabel: "Why this number?",
     numbers: [mostVisitedN], extraNumbers: [], view: "numberline",
   });

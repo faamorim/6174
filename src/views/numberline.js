@@ -3,9 +3,11 @@
 // height + green, interpolating in between. A single-jump path is max/red
 // (there's no "last jump" distinct from the first one).
 const STUCK_COLOR = "#999999";
+const CYCLE_COLOR = "#3d7dd9";
 const MIN_HEIGHT_RATIO = 0.15;
 const LABEL_ROW_HEIGHT = 16;
 const LABEL_MIN_GAP = 6;
+const CYCLE_AREA_HEIGHT = 70;
 
 // Fixed layout: the line always sits PADDING_TOP + ARC_AREA_HEIGHT pixels
 // from the top, regardless of how many label rows the bottom needs. Only
@@ -64,8 +66,13 @@ function renderNumberLineView(canvas, n, { showLabels = true } = {}) {
   }
 
   const path = pathToTarget(n);
-  const isDeadEnd = path[path.length - 1] !== TARGET;
+  const isDeadEnd = !CYCLE_MEMBERS.has(path[path.length - 1]);
   const numArcs = path.length - 1;
+
+  const cycleEntry = path[path.length - 1];
+  const cycle = CYCLE_OF.get(cycleEntry) ?? null;
+  const showCycle = cycle !== null && cycle.length > 1;
+  const cycleAreaH = showCycle ? CYCLE_AREA_HEIGHT : 0;
 
   // Per-arc color/height, by position within this path (not absolute
   // distance-to-target): arc 0 is always max height + red, the last arc is
@@ -88,7 +95,7 @@ function renderNumberLineView(canvas, n, { showLabels = true } = {}) {
   // numbers anyway, and it saves a measureText pass per frame. The canvas
   // just stays at its single-row height instead.
   let labelEntries = [];
-  let height = lineY + LABEL_BASE_HEIGHT;
+  let height = lineY + cycleAreaH + LABEL_BASE_HEIGHT;
   if (showLabels) {
     ctx.font = "13px ui-monospace, monospace";
     labelEntries = assignLabelRows(
@@ -96,7 +103,7 @@ function renderNumberLineView(canvas, n, { showLabels = true } = {}) {
       path.map((num) => ({ num, x: xFor(num), text: formatDigits(num) }))
     );
     const rowCount = Math.max(...labelEntries.map((e) => e.row)) + 1;
-    height = lineY + LABEL_BASE_HEIGHT + (rowCount - 1) * LABEL_ROW_HEIGHT;
+    height = lineY + cycleAreaH + LABEL_BASE_HEIGHT + (rowCount - 1) * LABEL_ROW_HEIGHT;
   }
 
   canvas.style.height = `${height}px`;
@@ -132,6 +139,26 @@ function renderNumberLineView(canvas, n, { showLabels = true } = {}) {
     ctx.stroke();
   }
 
+  // Cycle arcs below the baseline — dashed blue, drawn for multi-member attractors
+  if (showCycle) {
+    ctx.strokeStyle = CYCLE_COLOR;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    const depth = CYCLE_AREA_HEIGHT - 12;
+    for (let i = 0; i < cycle.length; i++) {
+      const from = cycle[i];
+      const to = cycle[(i + 1) % cycle.length];
+      const x1 = xFor(from);
+      const x2 = xFor(to);
+      const controlY = lineY + depth * 2; // quadratic control: peak ~lineY+depth
+      ctx.beginPath();
+      ctx.moveTo(x1, lineY);
+      ctx.quadraticCurveTo((x1 + x2) / 2, controlY, x2, lineY);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
   if (!showLabels) return;
 
   // ticks + labels for every number visited, colored like the arc that led
@@ -151,7 +178,7 @@ function renderNumberLineView(canvas, n, { showLabels = true } = {}) {
 
     ctx.fillStyle = color;
     ctx.font = isEndpoint ? "bold 13px ui-monospace, monospace" : "13px ui-monospace, monospace";
-    ctx.fillText(text, x, lineY + 22 + row * LABEL_ROW_HEIGHT);
+    ctx.fillText(text, x, lineY + cycleAreaH + 22 + row * LABEL_ROW_HEIGHT);
   });
 
   // range labels at both ends of the number line

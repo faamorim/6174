@@ -149,12 +149,6 @@ h1 {
   height: 100%;
 }
 
-/* Steps data canvas is full-resolution (one pixel per number); pixelated
-   keeps each column crisp when CSS scales it down to display width. */
-#steps-data-canvas {
-  image-rendering: pixelated;
-}
-
 /* Label row sits below each strip: triangle marker + number + range labels. */
 .heatmap-label {
   display: block;

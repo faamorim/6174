@@ -148,7 +148,8 @@ function setNumDigits(numDigits) {
   updateLevelSliderRange();
 
   input.maxLength = numDigits;
-  input.placeholder = TARGET !== null ? formatDigits(TARGET) : "";
+  input.placeholder = TARGET !== null ? formatDigits(TARGET)
+                    : CYCLES.length > 0 ? formatDigits(CYCLES[0][0]) : "";
 
   const n = Math.floor(Math.random() * (MAX - MIN + 1)) + MIN;
   input.value = String(n);
